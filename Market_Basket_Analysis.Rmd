@@ -1,0 +1,144 @@
+---
+title: "Market Basket Analysis"
+author: "Uche Kalu"
+date: "4/8/2022"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Market Basket Analysis is also called **Association Rules**.
+
+It is used to uncover links between items by large retailers. It works by searching for combinations of items that happen in transactions together
+
+It uses such info to recognize customer purchasing patterns, to identify who customers are, to understand why you buy certain items and to know which products are purchased jointly so as to know which products to promote
+
+Using Market Basket Analysis, we want to find out which consumer items from this hypothetical business dataset are bought together by customers
+
+```{r save}
+mydata <- read.csv("Cosmetics.csv", header = T, colClasses = "factor")
+
+```
+
+#### **Lets access our business data**
+
+```{r}
+str(mydata) 
+```
+
+```{r}
+summary(mydata)
+```
+
+```{r include=FALSE}
+library(arules)
+```
+
+#### This is the function used to create Market Basket Analysis
+
+```{r results='hide'}
+yrdata <- apriori(mydata)
+```
+
+*The number of rules per item is displayed - 3 rules with 1 item, 85 rules in 2 items, 10739 rules with 5 items. also displays total number of rules- 68880 rules (which is to much)*
+
+```{r}
+summary(yrdata)
+```
+
+#### **Lets reduce the number of Rules by using only with specified parameter values**
+
+```{r include=FALSE}
+myrules <- apriori(mydata, parameter = list(minlen = 2, maxlen = 3,   
+                                            supp = 0.7))
+```
+
+*Here we display d rules of all columns which are now values in lhs column(left hand side) which is 'IF' and rhs column(right hand side) which is 'Then' but they are all = NO (i.e which items was not bought - If Nail.Polish was not bought in lhs, Then Brushes was not bought in rhs). Since we want to see which item was bought, dis rule is not helpful.*
+
+```{r}
+inspect(myrules)
+```
+
+#### **Finding interesting rules- 1 (i.e rules that will display Yes in the lhs and rhs columns)**
+
+*We see that Foundation column has highest values of Yes among all columns(as such it is d most popular item bought) and Eyebrow.Pencils has highest value for NO*
+
+```{r}
+summary(mydata)
+```
+
+```{r warning=FALSE, message=FALSE}
+myrules <- apriori(mydata, parameter = list(minlen = 2, maxlen = 3,
+                                           conf = 0.7),
+                   appearance = list(rhs = c("Foundation=Yes"),   
+                                     default = "lhs"))
+```
+
+*This displays rules with Yes values(ie If Lip.Gloss was bought in lhs, Then Foundation was also bought in rhs) in lhs and rhs columns but there are still rules with No values displayed in lhs so dis rules is not of interest to us*
+
+```{r}
+inspect(myrules)
+```
+
+## Graphs and Charts
+
+```{r results='hide'}
+library(arulesViz)
+```
+
+#### **Displaying scatterplot chart of d rules using confidence, support and lift values**
+
+```{r }
+plot(myrules, method = "grouped")
+```
+
+```{r warning=FALSE, message=FALSE}
+plot(myrules, method = "graph", control = list(type = "items"))
+```
+
+#### **Finding interesting rules - 2 (ie displaying only rules with Yes values in lhs and rhs columns)**
+
+*Lets list all the rules in lhs and rhs columns that have value- Yes*
+
+```{r warning=FALSE, message=FALSE}
+myrules <- apriori(mydata, parameter = list(minlen = 2, maxlen = 3,
+                                           conf = 0.5),
+                   appearance = list(rhs = c("Foundation=Yes"), lhs = c("Bag=Yes", "Blush=Yes", "Nail.Polish=Yes", "Brushes=Yes", "Concealer=Yes", "Eyebrow.Pencils=Yes", "Bronzer=Yes", "Lip.liner=Yes", "Mascara=Yes", "Eye.shadow=Yes", "Lip.Gloss=Yes", "Lipstick=Yes", "Eyeliner=Yes"), default = "none")) 
+
+```
+
+```{r include=FALSE}
+quality(myrules) <- round(quality(myrules), digits = 3)
+```
+
+*This displays only rules with Yes values in lhs and rhs columns (ie If people bought Lipstick Then they also bought Foundation etc)*
+
+```{r}
+inspect(myrules)
+```
+
+#### **Finding and Displaying Redundant rules**
+
+```{r include=FALSE}
+redun <- is.subset(myrules, myrules)
+
+redun[lower.tri(redun, diag = T)] <- NA
+
+myredun <- colSums(redun, na.rm = T)>= 1
+```
+
+```{r}
+which(myredun)
+```
+
+#### **Removing Redundant rules**
+
+```{r results='hide'}
+yrrules <- myrules[!myredun]  # removes d redundant rules
+
+yrrules <- sort(yrrules, by = "lift")
+```
+
+```{r}
+inspect(yrrules)
+```
